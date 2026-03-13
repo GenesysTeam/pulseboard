@@ -1,0 +1,92 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.clientHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.clientName {
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  color: var(--color-neutral-900);
+  line-height: var(--leading-xl);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+.fullWidth {
+  grid-column: 1 / -1;
+}
+
+.cardTitle {
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  color: var(--color-neutral-700);
+  margin-bottom: var(--space-3);
+  line-height: var(--leading-base);
+}
+
+.infoList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.infoRow {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.infoLabel {
+  font-size: var(--text-sm);
+  color: var(--color-neutral-500);
+  width: 80px;
+  flex-shrink: 0;
+  line-height: var(--leading-sm);
+}
+
+.infoValue {
+  font-size: var(--text-sm);
+  color: var(--color-neutral-900);
+  line-height: var(--leading-sm);
+}
+
+.projectList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.projectItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.projectName {
+  font-size: var(--text-base);
+  color: var(--color-neutral-900);
+  line-height: var(--leading-base);
+}
+
+.projectDate {
+  font-size: var(--text-sm);
+  color: var(--color-neutral-500);
+  line-height: var(--leading-sm);
+}
+
+.notes {
+  font-size: var(--text-base);
+  color: var(--color-neutral-700);
+  line-height: var(--leading-base);
+}

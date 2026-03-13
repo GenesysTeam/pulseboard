@@ -1,0 +1,95 @@
+import { Meta } from '@storybook/blocks'
+
+<Meta title="Design Tokens" />
+
+# PulseBoard Design Tokens
+
+## Colors
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '32px' }}>
+  {[
+    ['--color-primary', '#1B65A6'],
+    ['--color-primary-light', '#E8F1FA'],
+    ['--color-secondary', '#F28C38'],
+    ['--color-error', '#C93B3B'],
+    ['--color-success', '#2D8659'],
+    ['--color-success-light', '#EBF5F0'],
+    ['--color-secondary-light', '#FEF3E7'],
+    ['--color-error-light', '#FBEAEA'],
+    ['--color-neutral-50', '#F9FAFB'],
+    ['--color-neutral-100', '#F3F4F6'],
+    ['--color-neutral-300', '#D1D5DB'],
+    ['--color-neutral-400', '#9CA3AF'],
+    ['--color-neutral-500', '#6B7280'],
+    ['--color-neutral-600', '#4B5563'],
+    ['--color-neutral-700', '#374151'],
+    ['--color-neutral-900', '#111827'],
+    ['--color-white', '#FFFFFF'],
+  ].map(([name, hex]) => (
+    <div key={name}>
+      <div style={{ width: '100%', height: '48px', backgroundColor: hex, borderRadius: '4px', border: '1px solid #D1D5DB' }} />
+      <div style={{ fontSize: '12px', marginTop: '4px', color: '#374151', fontFamily: 'monospace' }}>{name}</div>
+      <div style={{ fontSize: '12px', color: '#6B7280', fontFamily: 'monospace' }}>{hex}</div>
+    </div>
+  ))}
+</div>
+
+## Spacing Scale
+
+<div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '32px' }}>
+  {[
+    ['--space-1', '4px'],
+    ['--space-2', '8px'],
+    ['--space-3', '12px'],
+    ['--space-4', '16px'],
+    ['--space-5', '24px'],
+    ['--space-6', '32px'],
+    ['--space-7', '48px'],
+    ['--space-8', '64px'],
+  ].map(([name, value]) => (
+    <div key={name} style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <div style={{ width: '120px', fontSize: '12px', fontFamily: 'monospace', color: '#374151' }}>{name}</div>
+      <div style={{ width: value, height: '16px', backgroundColor: '#1B65A6', borderRadius: '2px' }} />
+      <div style={{ fontSize: '12px', color: '#6B7280', fontFamily: 'monospace' }}>{value}</div>
+    </div>
+  ))}
+</div>
+
+## Typography
+
+<div style={{ marginBottom: '32px' }}>
+  <div style={{ fontSize: '24px', fontWeight: 600, fontFamily: 'Inter, sans-serif', color: '#111827', marginBottom: '8px' }}>--text-xl / 24px / semibold</div>
+  <div style={{ fontSize: '18px', fontWeight: 600, fontFamily: 'Inter, sans-serif', color: '#111827', marginBottom: '8px' }}>--text-lg / 18px / semibold</div>
+  <div style={{ fontSize: '15px', fontWeight: 600, fontFamily: 'Inter, sans-serif', color: '#111827', marginBottom: '8px' }}>--text-base / 15px / semibold</div>
+  <div style={{ fontSize: '13px', fontWeight: 600, fontFamily: 'Inter, sans-serif', color: '#111827', marginBottom: '8px' }}>--text-sm / 13px / semibold</div>
+  <div style={{ fontSize: '24px', fontWeight: 400, fontFamily: 'Inter, sans-serif', color: '#111827', marginBottom: '8px' }}>--text-xl / 24px / regular</div>
+  <div style={{ fontSize: '18px', fontWeight: 400, fontFamily: 'Inter, sans-serif', color: '#111827', marginBottom: '8px' }}>--text-lg / 18px / regular</div>
+  <div style={{ fontSize: '15px', fontWeight: 400, fontFamily: 'Inter, sans-serif', color: '#111827', marginBottom: '8px' }}>--text-base / 15px / regular</div>
+  <div style={{ fontSize: '13px', fontWeight: 400, fontFamily: 'Inter, sans-serif', color: '#111827', marginBottom: '8px' }}>--text-sm / 13px / regular</div>
+</div>
+
+## Border Radius
+
+<div style={{ display: 'flex', gap: '24px', marginBottom: '32px' }}>
+  <div>
+    <div style={{ width: '80px', height: '80px', backgroundColor: '#E8F1FA', border: '1px solid #1B65A6', borderRadius: '4px' }} />
+    <div style={{ fontSize: '12px', marginTop: '4px', fontFamily: 'monospace', color: '#374151' }}>--radius-sm (4px)</div>
+  </div>
+  <div>
+    <div style={{ width: '80px', height: '80px', backgroundColor: '#E8F1FA', border: '1px solid #1B65A6', borderRadius: '8px' }} />
+    <div style={{ fontSize: '12px', marginTop: '4px', fontFamily: 'monospace', color: '#374151' }}>--radius-md (8px)</div>
+  </div>
+</div>
+
+## Shadows
+
+<div style={{ display: 'flex', gap: '24px' }}>
+  <div>
+    <div style={{ width: '120px', height: '80px', backgroundColor: '#FFFFFF', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)' }} />
+    <div style={{ fontSize: '12px', marginTop: '8px', fontFamily: 'monospace', color: '#374151' }}>--shadow-sm</div>
+  </div>
+  <div>
+    <div style={{ width: '120px', height: '80px', backgroundColor: '#FFFFFF', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.06)' }} />
+    <div style={{ fontSize: '12px', marginTop: '8px', fontFamily: 'monospace', color: '#374151' }}>--shadow-md</div>
+  </div>
+</div>

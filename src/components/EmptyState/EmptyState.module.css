@@ -1,0 +1,36 @@
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: var(--space-7);
+  text-align: center;
+}
+
+.illustration {
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-neutral-300);
+}
+
+.heading {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--color-neutral-900);
+  margin-top: var(--space-5);
+  line-height: var(--leading-lg);
+}
+
+.description {
+  font-size: var(--text-base);
+  font-weight: var(--weight-regular);
+  color: var(--color-neutral-600);
+  margin-top: var(--space-2);
+  max-width: 360px;
+  line-height: var(--leading-base);
+}
+
+.action {
+  margin-top: var(--space-5);
+}
