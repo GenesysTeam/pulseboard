@@ -12,5 +12,24 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Genuyn Live — auto-refresh when an edit is applied
+      const sessionId = new URLSearchParams(location.search).get('genuyn_session')
+      if (sessionId) {
+        const wsBase = location.hostname === 'localhost'
+          ? 'ws://localhost:3001'
+          : 'wss://genuyn-live-production.up.railway.app'
+        function connect() {
+          const ws = new WebSocket(wsBase + '?session=' + sessionId)
+          ws.onopen = () => console.log('[Genuyn] connected, watching session', sessionId)
+          ws.onmessage = (e) => {
+            const msg = JSON.parse(e.data)
+            if (msg.type === 'refresh') location.reload()
+          }
+          ws.onclose = () => setTimeout(connect, 2000)
+        }
+        connect()
+      }
+    </script>
   </body>
 </html>
