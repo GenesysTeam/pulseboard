@@ -4,6 +4,7 @@ import { SideNav } from './components/SideNav'
 import ClientsList from './pages/ClientsList'
 import ClientDetail from './pages/ClientDetail'
 import Settings from './pages/Settings'
+import GenuynOverlay from './components/GenuynOverlay/GenuynOverlay'
 
 type Page = 'clients' | 'client-detail' | 'settings'
 
@@ -11,6 +12,8 @@ const navItems = [
   { label: 'Clients', key: 'clients' },
   { label: 'Settings', key: 'settings' },
 ]
+
+const genuynSession = new URLSearchParams(window.location.search).get('genuyn_session')
 
 export default function App() {
   const [activePage, setActivePage] = useState<Page>('clients')
@@ -45,6 +48,7 @@ export default function App() {
         )}
         {activePage === 'settings' && <Settings />}
       </main>
+      {genuynSession && <GenuynOverlay sessionId={genuynSession} />}
     </div>
   )
 }
