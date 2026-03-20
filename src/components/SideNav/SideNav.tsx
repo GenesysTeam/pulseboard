@@ -12,10 +12,12 @@ interface SideNavProps {
 }
 
 export function SideNav({ items, activeKey, onSelect }: SideNavProps) {
+  const filteredItems = items.filter((item) => item.key !== 'users')
+
   return (
     <nav className={styles.sideNav}>
       <ul className={styles.navList}>
-        {items.map((item) => {
+        {filteredItems.map((item) => {
           const isActive = item.key === activeKey
           return (
             <li
