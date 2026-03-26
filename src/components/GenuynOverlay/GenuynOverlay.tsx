@@ -27,7 +27,7 @@ interface SelEl { el: Element; file: string; name: string }
 interface HistoryEvent {
   id: string
   command: string
-  status: 'pending' | 'done' | 'failed'
+  status: 'pending' | 'done' | 'applied' | 'failed'
   created_at: string
 }
 
@@ -111,7 +111,7 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
   useEffect(() => {
     fetch(`${API}/sessions/${sessionId}/events`)
       .then(r => r.json())
-      .then((events: HistoryEvent[]) => setHistory(events.filter(e => e.status === 'done')))
+      .then((events: HistoryEvent[]) => setHistory(events.filter(e => e.status === 'done' || e.status === 'applied')))
       .catch(() => {})
   }, [sessionId])
 
