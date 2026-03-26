@@ -6,6 +6,7 @@ const CYAN = '#00D4FF'
 const GREEN = '#00FF94'
 const BG = 'rgba(3,3,18,0.93)'
 const BORDER = 'rgba(108,111,255,0.22)'
+const GLOW = '0 0 32px rgba(108,111,255,0.18), 0 4px 24px rgba(0,0,0,0.5)'
 
 type Mode = 'preview' | 'edit'
 
