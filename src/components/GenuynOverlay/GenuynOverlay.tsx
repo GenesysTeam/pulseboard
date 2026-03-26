@@ -150,8 +150,7 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
             setHistory(h => [...h, { id: doneCmd!.id, command: doneCmd!.command, status: 'done', created_at: new Date().toISOString() }])
           }
         }, 300)
-        // Reload page to show updated component (session ID in URL re-attaches overlay)
-        setTimeout(() => window.location.reload(), 1500)
+        setTimeout(() => labelComponents(fileMapRef.current), 600)
       }
       ws.onclose = () => setTimeout(connect, 2000)
     }
@@ -249,6 +248,10 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         failItem((body as { error?: string }).error || 'Command failed')
+      } else {
+        // HTTP response confirms file was written — reload to show the change
+        // WS message handles the visual Done state; this guarantees the reload fires
+        setTimeout(() => window.location.reload(), 1500)
       }
     } catch {
       clearTimeout(timeoutId)
