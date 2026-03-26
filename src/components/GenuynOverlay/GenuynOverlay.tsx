@@ -142,7 +142,6 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
           return q.map(c => c.id === first.id ? { ...c, step: 2, status: 'applying' } : c)
         })
         setSkeleton(null)
-        setTimeout(() => labelComponents(fileMapRef.current), 600)
         setTimeout(() => {
           setQueue(q => q.map(c => c.status === 'applying' ? { ...c, step: 3, status: 'done' } : c))
           setEditCount(n => n + 1)
@@ -150,8 +149,9 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
             addNotif(doneCmd.command, true)
             setHistory(h => [...h, { id: doneCmd!.id, command: doneCmd!.command, status: 'done', created_at: new Date().toISOString() }])
           }
-        }, 600)
-        setTimeout(() => setQueue(q => q.filter(c => c.status !== 'done')), 3800)
+        }, 300)
+        // Reload page to show updated component (session ID in URL re-attaches overlay)
+        setTimeout(() => window.location.reload(), 1500)
       }
       ws.onclose = () => setTimeout(connect, 2000)
     }
