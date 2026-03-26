@@ -154,7 +154,7 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
 
       // Nothing found — dismiss after short delay
       clearTimeout(dismissRef.current)
-      dismissRef.current = setTimeout(() => setHovered(null), 250)
+      dismissRef.current = setTimeout(() => setHovered(null), 600)
     }
 
     document.addEventListener('mousemove', onMove)
@@ -242,14 +242,14 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
         {/* EDIT MODE — frosted toolbar */}
         {mode === 'edit' && (
           <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999,
+            position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 9999,
             height: 48,
             background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(14px)',
-            borderBottom: '1px solid rgba(0,0,0,0.08)',
+            borderTop: '1px solid rgba(0,0,0,0.08)',
             display: 'flex', alignItems: 'center', padding: '0 16px', gap: 12,
             boxShadow: processing?.type === 'global'
-              ? `inset 0 -2px 0 ${ACCENT}`
-              : '0 1px 0 rgba(0,0,0,0.06)',
+              ? `inset 0 2px 0 ${ACCENT}`
+              : '0 -1px 0 rgba(0,0,0,0.06)',
           }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(0,0,0,0.35)', letterSpacing: '-0.01em', flexShrink: 0 }}>
               Genuyn
@@ -311,9 +311,8 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
           const target = locked || hovered!
           const r = target.el.getBoundingClientRect()
           const chipW = 240
-          const chipH = 36
-          const top = Math.max(8, r.top - chipH - 6)
-          const left = Math.min(window.innerWidth - chipW - 8, Math.max(8, r.right - chipW))
+          const top = Math.max(8, r.top + 6)
+          const left = Math.min(window.innerWidth - chipW - 8, Math.max(8, r.right - chipW - 6))
 
           return (
             <div style={{
