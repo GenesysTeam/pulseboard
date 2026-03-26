@@ -25,6 +25,13 @@ interface Notif {
   ok: boolean
 }
 
+interface HistoryEvent {
+  id: string
+  command: string
+  status: 'pending' | 'done' | 'failed'
+  created_at: string
+}
+
 interface HovEl {
   el: Element
   file: string
@@ -84,6 +91,8 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
   const [globalInput, setGlobalInput] = useState('')
   const [elapsed, setElapsed] = useState(0)
   const [editCount, setEditCount] = useState(0)
+  const [history, setHistory] = useState<HistoryEvent[]>([])
+  const [showHistory, setShowHistory] = useState(false)
   const wsRef = useRef<WebSocket | null>(null)
   const dismissRef = useRef<ReturnType<typeof setTimeout>>()
   const startRef = useRef(Date.now())
@@ -99,6 +108,13 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
     fetch(`${API}/sessions/${sessionId}/files`)
       .then((r) => r.json())
       .then((files: string[]) => setFileMap(buildFileMap(files)))
+      .catch(() => {})
+  }, [sessionId])
+
+  useEffect(() => {
+    fetch(`${API}/sessions/${sessionId}/events`)
+      .then((r) => r.json())
+      .then((events: HistoryEvent[]) => setHistory(events.filter((e) => e.status === 'done')))
       .catch(() => {})
   }, [sessionId])
 
@@ -134,7 +150,10 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
         setTimeout(() => {
           setQueue((q) => q.map((c) => (c.status === 'applying' ? { ...c, step: 3, status: 'done' } : c)))
           setEditCount((n) => n + 1)
-          if (doneCmd) addNotif(doneCmd.command, true)
+          if (doneCmd) {
+            addNotif(doneCmd.command, true)
+            setHistory((h) => [...h, { id: doneCmd!.id, command: doneCmd!.command, status: 'done', created_at: new Date().toISOString() }])
+          }
         }, 600)
         setTimeout(() => setQueue((q) => q.filter((c) => c.status !== 'done')), 3800)
       }
@@ -353,7 +372,6 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
               style={{
                 flex: 1, background: 'transparent', border: 'none', outline: 'none',
                 fontSize: 12, color: 'rgba(255,255,255,0.85)',
-                '::placeholder': { color: 'rgba(255,255,255,0.3)' },
               }}
             />
             <button
@@ -382,6 +400,37 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
             boxShadow: GLOW,
           }}>
             <ModePill mode={mode} onToggle={setMode} />
+          </div>
+        )}
+
+        {/* ── HISTORY PANEL ── */}
+        {mode === 'edit' && showHistory && (
+          <div style={{
+            position: 'fixed', bottom: 52, left: 0, right: 0,
+            maxHeight: 280, overflowY: 'auto',
+            zIndex: 9998, pointerEvents: 'all',
+            background: BG, backdropFilter: 'blur(20px)',
+            borderTop: `1px solid ${BORDER}`,
+          }}>
+            {history.length === 0 ? (
+              <p style={{ margin: 0, padding: '20px 20px', fontSize: 12, color: 'rgba(255,255,255,0.3)', textAlign: 'center' }}>
+                No edits yet this session
+              </p>
+            ) : (
+              [...history].reverse().map((ev, i) => (
+                <div key={ev.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 20px',
+                  borderBottom: i < history.length - 1 ? `1px solid rgba(255,255,255,0.04)` : 'none',
+                }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: GREEN, flexShrink: 0, boxShadow: `0 0 6px ${GREEN}` }} />
+                  <span style={{ flex: 1, fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>{ev.command}</span>
+                  <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', flexShrink: 0 }}>
+                    {new Date(ev.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+              ))
+            )}
           </div>
         )}
 
@@ -441,7 +490,22 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
 
             <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,0.08)' }} />
 
-            {/* Right: mode toggle */}
+            {/* Right: history + mode toggle */}
+            <button
+              onClick={() => setShowHistory((v) => !v)}
+              title="Edit history"
+              style={{
+                background: showHistory ? `${ACCENT}33` : 'transparent',
+                border: `1px solid ${showHistory ? `${ACCENT}66` : 'rgba(255,255,255,0.1)'}`,
+                borderRadius: 8, padding: '4px 10px', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 5,
+                color: showHistory ? ACCENT : 'rgba(255,255,255,0.4)',
+                fontSize: 11, fontWeight: 600, flexShrink: 0,
+                transition: 'all 150ms ease',
+              }}
+            >
+              ≡ {history.length > 0 && <span style={{ color: GREEN }}>{history.length}</span>}
+            </button>
             <ModePill mode={mode} onToggle={setMode} />
           </div>
         )}
