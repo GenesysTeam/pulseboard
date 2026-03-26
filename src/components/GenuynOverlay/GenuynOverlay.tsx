@@ -4,9 +4,10 @@ const API = `https://${window.location.host}`
 const ACCENT = '#6C6FFF'
 const CYAN = '#00D4FF'
 const GREEN = '#00FF94'
-const BG = 'rgba(3,3,18,0.93)'
-const BORDER = 'rgba(108,111,255,0.22)'
-const GLOW = '0 0 32px rgba(108,111,255,0.18), 0 4px 24px rgba(0,0,0,0.5)'
+const RED = '#FF4D6A'
+const BG = 'rgba(8,8,26,0.94)'
+const BORDER = 'rgba(255,255,255,0.08)'
+const GLOW = '0 0 24px rgba(108,111,255,0.16), 0 4px 20px rgba(0,0,0,0.5)'
 
 type Mode = 'preview' | 'edit'
 
@@ -25,16 +26,17 @@ interface Notif {
   ok: boolean
 }
 
+interface HovEl {
+  el: Element
+  file: string
+  name: string
+}
+
 interface HistoryEvent {
   id: string
   command: string
   status: 'pending' | 'done' | 'failed'
   created_at: string
-}
-
-interface HovEl {
-  el: Element
-  file: string
 }
 
 function buildFileMap(files: string[]): Record<string, string> {
@@ -59,6 +61,7 @@ function labelComponents(fileMap: Record<string, string>) {
       const name: string = fiber.type?.displayName || fiber.type?.name || ''
       if (name && fileMap[name]) {
         el.setAttribute('data-genuyn', fileMap[name])
+        el.setAttribute('data-genuyn-name', name)
         break
       }
       fiber = fiber.return
@@ -86,6 +89,7 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
   const [hovered, setHovered] = useState<HovEl | null>(null)
   const [locked, setLocked] = useState<HovEl | null>(null)
   const [hovRect, setHovRect] = useState<DOMRect | null>(null)
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
   const [skeleton, setSkeleton] = useState<{ top: number; left: number; width: number; height: number } | null>(null)
   const [chipInput, setChipInput] = useState('')
   const [globalInput, setGlobalInput] = useState('')
@@ -123,6 +127,14 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
   }, [mode, fileMap])
 
   useEffect(() => { sessionStorage.setItem('genuyn-mode', mode) }, [mode])
+
+  // Always track mouse position in edit mode (separate from hover detection)
+  useEffect(() => {
+    if (mode !== 'edit') return
+    const onMove = (e: MouseEvent) => setMousePos({ x: e.clientX, y: e.clientY })
+    document.addEventListener('mousemove', onMove)
+    return () => document.removeEventListener('mousemove', onMove)
+  }, [mode])
 
   const addNotif = (text: string, ok: boolean) => {
     const id = `n${Date.now()}`
@@ -163,6 +175,7 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
     return () => wsRef.current?.close()
   }, [sessionId])
 
+  // Hover detection (only when not locked)
   useEffect(() => {
     if (mode !== 'edit' || locked) return
     const onMove = (e: MouseEvent) => {
@@ -172,14 +185,18 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
       while (el) {
         if (el.hasAttribute('data-genuyn')) {
           clearTimeout(dismissRef.current)
-          setHovered({ el, file: el.getAttribute('data-genuyn')! })
+          setHovered({
+            el,
+            file: el.getAttribute('data-genuyn')!,
+            name: el.getAttribute('data-genuyn-name') || el.getAttribute('data-genuyn')!.split('/').pop()!.replace(/\.(tsx|jsx)$/, ''),
+          })
           setHovRect(el.getBoundingClientRect())
           return
         }
         el = el.parentElement
       }
       clearTimeout(dismissRef.current)
-      dismissRef.current = setTimeout(() => { setHovered(null); setHovRect(null) }, 600)
+      dismissRef.current = setTimeout(() => { setHovered(null); setHovRect(null) }, 500)
     }
     document.addEventListener('mousemove', onMove)
     return () => { document.removeEventListener('mousemove', onMove); clearTimeout(dismissRef.current) }
@@ -191,18 +208,48 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
     return () => document.removeEventListener('keydown', onKey)
   }, [])
 
+  const cancelItem = (id: string) => {
+    setQueue((q) => q.filter((c) => c.id !== id))
+    setSkeleton(null)
+  }
+
   const submitCommand = async (command: string, file?: string, rect?: DOMRect) => {
     const id = `c${Date.now()}`
     const snap = rect ? { top: rect.top, left: rect.left, width: rect.width, height: rect.height } : undefined
     setQueue((q) => [...q, { id, command, file, step: 0, status: 'active', rect: snap }])
     if (snap) setSkeleton(snap)
     setLocked(null); setHovered(null); setHovRect(null)
-    setTimeout(() => setQueue((q) => q.map((c) => c.id === id && c.step === 0 ? { ...c, step: 1 } : c)), 1400)
-    await fetch(`${API}/sessions/${sessionId}/command`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ command, filePath: file }),
-    })
+
+    const stepTimer = setTimeout(
+      () => setQueue((q) => q.map((c) => c.id === id && c.step === 0 ? { ...c, step: 1 } : c)),
+      1400
+    )
+
+    const failItem = (msg: string) => {
+      clearTimeout(stepTimer)
+      setQueue((q) => q.map((c) => c.id === id ? { ...c, status: 'failed' } : c))
+      setSkeleton(null)
+      addNotif(msg, false)
+      setTimeout(() => setQueue((q) => q.filter((c) => c.id !== id)), 3000)
+    }
+
+    const timeoutId = setTimeout(() => failItem('Timed out'), 30000)
+
+    try {
+      const res = await fetch(`${API}/sessions/${sessionId}/command`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command, filePath: file }),
+      })
+      clearTimeout(timeoutId)
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        failItem((body as { error?: string }).error || 'Command failed')
+      }
+    } catch {
+      clearTimeout(timeoutId)
+      failItem('Network error')
+    }
   }
 
   const handleChipSend = () => {
@@ -220,118 +267,147 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
 
   const activeEl = locked || hovered
 
+  // Chip floats near cursor, stays inside viewport
+  const chipW = 240
+  const chipX = Math.min(window.innerWidth - chipW - 12, Math.max(12, mousePos.x + 14))
+  const chipY = Math.min(window.innerHeight - 80, Math.max(12, mousePos.y - 52))
+
   return (
     <>
       <style>{`
         @keyframes g-shimmer {
-          0% { background-position: -200% 0 }
-          100% { background-position: 200% 0 }
-        }
-        @keyframes g-pulse {
-          0%,100% { opacity:1 } 50% { opacity:0.4 }
+          0%   { background-position: -200% 0 }
+          100% { background-position:  200% 0 }
         }
         @keyframes g-slidein {
-          from { transform:translateY(-8px); opacity:0 }
-          to { transform:translateY(0); opacity:1 }
+          from { transform: translateY(-6px); opacity: 0 }
+          to   { transform: translateY(0);    opacity: 1 }
         }
         @keyframes g-notif {
-          from { transform:translateX(20px); opacity:0 }
-          to { transform:translateX(0); opacity:1 }
+          from { transform: translateX(10px); opacity: 0 }
+          to   { transform: translateX(0);    opacity: 1 }
         }
-        @keyframes g-dot {
-          0%,100% { box-shadow:0 0 4px currentColor }
-          50% { box-shadow:0 0 12px currentColor }
+        @keyframes g-blink {
+          0%, 100% { opacity: 1 }
+          50%       { opacity: 0.25 }
         }
+        [data-genuyn-overlay] button { font-family: system-ui, sans-serif; }
+        [data-genuyn-overlay] input::placeholder { color: rgba(255,255,255,0.28); }
       `}</style>
 
-      <div data-genuyn-overlay="true" style={{ fontFamily: 'system-ui,sans-serif', pointerEvents: 'none' }}>
+      <div data-genuyn-overlay="true" style={{ fontFamily: 'system-ui, sans-serif', pointerEvents: 'none' }}>
 
-        {/* ── COMMAND QUEUE STRIP (top center) ── */}
+        {/* ── COMMAND QUEUE — top right, slim pills ── */}
         {queue.length > 0 && (
           <div style={{
-            position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)',
-            zIndex: 10001, display: 'flex', gap: 8, pointerEvents: 'none',
+            position: 'fixed', top: 12, right: 12,
+            zIndex: 10001, display: 'flex', flexDirection: 'column', gap: 4,
+            pointerEvents: 'all', width: 272,
           }}>
             {queue.map((item) => (
               <div key={item.id} style={{
-                background: BG, border: `1px solid ${item.status === 'done' ? `${GREEN}55` : item.status === 'failed' ? '#FF4D6A55' : BORDER}`,
-                borderRadius: 12, padding: '8px 14px', minWidth: 180, maxWidth: 240,
-                boxShadow: item.status === 'active' || item.status === 'applying'
-                  ? `0 0 24px rgba(108,111,255,0.2), 0 0 0 1px ${BORDER}`
-                  : '0 4px 16px rgba(0,0,0,0.4)',
-                animation: 'g-slidein 200ms ease-out',
+                background: item.status === 'failed' ? 'rgba(255,77,106,0.1)' : BG,
+                border: `1px solid ${
+                  item.status === 'done'    ? `${GREEN}44` :
+                  item.status === 'failed'  ? `${RED}44`   :
+                  item.status === 'applying' ? `${GREEN}33` :
+                  BORDER
+                }`,
+                borderRadius: 8,
+                padding: '7px 8px 7px 12px',
+                display: 'flex', alignItems: 'center', gap: 8,
+                animation: 'g-slidein 160ms ease-out',
+                backdropFilter: 'blur(20px)',
+                boxShadow: '0 2px 16px rgba(0,0,0,0.35)',
               }}>
-                {/* Command text */}
-                <p style={{
-                  margin: '0 0 8px', fontSize: 12, color: 'rgba(255,255,255,0.85)',
-                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                  fontWeight: 500,
-                }}>
-                  {item.command}
-                </p>
-                {/* Step dots + label */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {/* Step indicator */}
+                <div style={{ display: 'flex', gap: 3, alignItems: 'center', flexShrink: 0 }}>
                   {item.status === 'done' ? (
-                    <span style={{ fontSize: 11, color: GREEN, fontWeight: 600 }}>✓ Applied</span>
+                    <span style={{ fontSize: 11, color: GREEN, fontWeight: 700 }}>✓</span>
+                  ) : item.status === 'failed' ? (
+                    <span style={{ fontSize: 11, color: RED }}>✕</span>
                   ) : (
-                    <>
-                      {STEPS.map((s, i) => (
-                        <div key={i} style={{
-                          width: 6, height: 6, borderRadius: '50%',
-                          background: item.step > i ? s.color : item.step === i ? s.color : 'rgba(255,255,255,0.12)',
-                          color: s.color,
-                          boxShadow: item.step === i ? `0 0 8px ${s.color}` : 'none',
-                          animation: item.step === i ? 'g-dot 1.2s ease infinite' : 'none',
-                          transition: 'all 300ms ease',
-                          flexShrink: 0,
-                        }} />
-                      ))}
-                      <span style={{
-                        fontSize: 10, color: 'rgba(255,255,255,0.4)',
-                        marginLeft: 2, letterSpacing: '0.03em',
-                      }}>
-                        {STEPS[Math.min(item.step, 2)]?.label}…
-                      </span>
-                    </>
+                    STEPS.map((s, i) => (
+                      <div key={i} style={{
+                        width: 5, height: 5, borderRadius: '50%',
+                        background: item.step > i ? s.color : item.step === i ? s.color : 'rgba(255,255,255,0.1)',
+                        animation: item.step === i ? 'g-blink 0.9s ease infinite' : 'none',
+                        transition: 'background 300ms',
+                      }} />
+                    ))
                   )}
                 </div>
+
+                {/* Command text */}
+                <span style={{
+                  flex: 1, fontSize: 11,
+                  color: item.status === 'failed' ? `${RED}bb` : 'rgba(255,255,255,0.72)',
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                }}>
+                  {item.command}
+                </span>
+
+                {/* Step label */}
+                {item.status === 'active' && (
+                  <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.22)', flexShrink: 0, letterSpacing: '0.05em' }}>
+                    {STEPS[Math.min(item.step, 2)]?.label}
+                  </span>
+                )}
+
+                {/* Cancel */}
+                {item.status !== 'done' && (
+                  <button
+                    onClick={() => cancelItem(item.id)}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = RED; e.currentTarget.style.opacity = '1' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.22)'; e.currentTarget.style.opacity = '1' }}
+                    style={{
+                      background: 'transparent', border: 'none', cursor: 'pointer',
+                      color: 'rgba(255,255,255,0.22)', fontSize: 13, lineHeight: 1,
+                      padding: '2px 4px', flexShrink: 0, transition: 'color 120ms',
+                    }}
+                  >✕</button>
+                )}
               </div>
             ))}
           </div>
         )}
 
-        {/* ── NOTIFICATIONS (top right) ── */}
-        <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 10002, display: 'flex', flexDirection: 'column', gap: 8, pointerEvents: 'none' }}>
+        {/* ── NOTIFICATIONS ── */}
+        <div style={{
+          position: 'fixed', top: 12,
+          right: queue.length > 0 ? 296 : 12,
+          zIndex: 10002, display: 'flex', flexDirection: 'column', gap: 5,
+          pointerEvents: 'none', maxWidth: 260,
+          transition: 'right 200ms ease',
+        }}>
           {notifs.map((n) => (
             <div key={n.id} style={{
-              background: BG, border: `1px solid ${n.ok ? `${GREEN}44` : '#FF4D6A44'}`,
-              borderRadius: 10, padding: '10px 14px',
-              boxShadow: `0 0 20px rgba(0,0,0,0.5), 0 0 0 1px ${n.ok ? `${GREEN}22` : '#FF4D6A22'}`,
-              animation: 'g-notif 200ms ease-out',
-              maxWidth: 280,
+              background: BG, backdropFilter: 'blur(20px)',
+              border: `1px solid ${n.ok ? `${GREEN}44` : `${RED}44`}`,
+              borderRadius: 7, padding: '7px 12px',
+              animation: 'g-notif 160ms ease-out',
+              boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
+              display: 'flex', alignItems: 'center', gap: 7,
             }}>
-              <span style={{ fontSize: 12, color: n.ok ? GREEN : '#FF4D6A', fontWeight: 600 }}>
+              <span style={{ fontSize: 11, color: n.ok ? GREEN : RED, fontWeight: 700, flexShrink: 0 }}>
                 {n.ok ? '✓' : '✕'}
               </span>
-              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', marginLeft: 8 }}>
-                {n.text}
-              </span>
+              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.68)' }}>{n.text}</span>
             </div>
           ))}
         </div>
 
-        {/* ── SKELETON on component being edited ── */}
+        {/* ── SKELETON shimmer over component being edited ── */}
         {skeleton && (
           <div style={{
             position: 'fixed',
             top: skeleton.top, left: skeleton.left,
             width: skeleton.width, height: skeleton.height,
-            borderRadius: 6, zIndex: 9997, pointerEvents: 'none',
-            border: `1px solid ${CYAN}44`,
-            background: 'linear-gradient(90deg, rgba(0,212,255,0.04) 25%, rgba(108,111,255,0.1) 50%, rgba(0,212,255,0.04) 75%)',
+            borderRadius: 4, zIndex: 9997, pointerEvents: 'none',
+            border: `1px solid ${CYAN}33`,
+            background: 'linear-gradient(90deg, rgba(0,212,255,0.04) 25%, rgba(108,111,255,0.09) 50%, rgba(0,212,255,0.04) 75%)',
             backgroundSize: '200% 100%',
             animation: 'g-shimmer 1.6s linear infinite',
-            boxShadow: `0 0 24px rgba(0,212,255,0.08)`,
           }} />
         )}
 
@@ -339,60 +415,77 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
         {mode === 'edit' && activeEl && hovRect && (
           <div style={{
             position: 'fixed',
-            top: hovRect.top - 1.5, left: hovRect.left - 1.5,
-            width: hovRect.width + 3, height: hovRect.height + 3,
-            border: `1.5px solid ${ACCENT}`,
-            background: 'rgba(108,111,255,0.04)',
-            borderRadius: 4, pointerEvents: 'none', zIndex: 9998,
-            boxShadow: `0 0 12px rgba(108,111,255,0.12)`,
-            transition: 'all 80ms ease',
+            top: hovRect.top - 1, left: hovRect.left - 1,
+            width: hovRect.width + 2, height: hovRect.height + 2,
+            border: `1px solid ${ACCENT}77`,
+            background: 'rgba(108,111,255,0.03)',
+            borderRadius: 3, pointerEvents: 'none', zIndex: 9998,
+            transition: 'all 60ms ease',
+            boxShadow: `0 0 0 3px ${ACCENT}11`,
           }} />
         )}
 
-        {/* ── HOVER CHIP ── */}
-        {mode === 'edit' && (locked || hovered) && hovRect && (
+        {/* ── HOVER CHIP — floats near cursor ── */}
+        {mode === 'edit' && (locked || hovered) && (
           <div style={{
             position: 'fixed',
-            top: Math.max(8, hovRect.top + 6),
-            left: Math.min(window.innerWidth - 256, Math.max(8, hovRect.right - 246)),
-            zIndex: 10000,
-            display: 'flex', alignItems: 'center', gap: 6,
-            background: BG, backdropFilter: 'blur(16px)',
-            border: `1px solid ${ACCENT}55`,
-            borderRadius: 10, padding: '6px 6px 6px 12px',
-            boxShadow: `0 0 20px rgba(108,111,255,0.15), 0 4px 16px rgba(0,0,0,0.4)`,
-            width: 240, pointerEvents: 'all',
+            top: chipY, left: chipX,
+            width: chipW,
+            zIndex: 10000, pointerEvents: 'all',
+            background: BG, backdropFilter: 'blur(24px)',
+            border: `1px solid ${locked ? `${ACCENT}66` : BORDER}`,
+            borderRadius: 9,
+            boxShadow: locked ? `0 4px 24px rgba(0,0,0,0.5), 0 0 0 1px ${ACCENT}22` : '0 4px 16px rgba(0,0,0,0.4)',
+            overflow: 'hidden',
           }}>
-            <input
-              value={chipInput}
-              onChange={(e) => setChipInput(e.target.value)}
-              onFocus={() => { if (hovered && !locked) setLocked(hovered) }}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleChipSend(); if (e.key === 'Escape') { setLocked(null); setChipInput('') } }}
-              placeholder="Edit this component…"
-              style={{
-                flex: 1, background: 'transparent', border: 'none', outline: 'none',
-                fontSize: 12, color: 'rgba(255,255,255,0.85)',
-              }}
-            />
-            <button
-              onClick={handleChipSend}
-              disabled={!chipInput.trim()}
-              style={{
-                background: chipInput.trim() ? ACCENT : 'rgba(108,111,255,0.2)',
-                color: '#fff', border: 'none', borderRadius: 6,
-                width: 26, height: 26, cursor: chipInput.trim() ? 'pointer' : 'default',
-                fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                flexShrink: 0, transition: 'all 150ms ease',
-                boxShadow: chipInput.trim() ? `0 0 12px ${ACCENT}88` : 'none',
-              }}
-            >↑</button>
+            {/* Component label strip */}
+            <div style={{
+              padding: '5px 10px',
+              borderBottom: `1px solid rgba(255,255,255,0.05)`,
+              display: 'flex', alignItems: 'center', gap: 5,
+            }}>
+              <div style={{ width: 4, height: 4, borderRadius: '50%', background: ACCENT, boxShadow: `0 0 6px ${ACCENT}`, flexShrink: 0 }} />
+              <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                {activeEl?.name}
+              </span>
+            </div>
+            {/* Input row */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 4px 5px 10px' }}>
+              <input
+                value={chipInput}
+                onChange={(e) => setChipInput(e.target.value)}
+                onFocus={() => { if (hovered && !locked) setLocked(hovered) }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleChipSend()
+                  if (e.key === 'Escape') { setLocked(null); setChipInput('') }
+                }}
+                placeholder="Describe a change…"
+                autoFocus={!!locked}
+                style={{
+                  flex: 1, background: 'transparent', border: 'none', outline: 'none',
+                  fontSize: 12, color: 'rgba(255,255,255,0.85)',
+                }}
+              />
+              <button
+                onClick={handleChipSend}
+                disabled={!chipInput.trim()}
+                style={{
+                  background: chipInput.trim() ? ACCENT : 'rgba(108,111,255,0.12)',
+                  color: '#fff', border: 'none', borderRadius: 5,
+                  width: 26, height: 26, cursor: chipInput.trim() ? 'pointer' : 'default',
+                  fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flexShrink: 0, transition: 'background 120ms',
+                  boxShadow: chipInput.trim() ? `0 0 10px ${ACCENT}77` : 'none',
+                }}
+              >↑</button>
+            </div>
           </div>
         )}
 
-        {/* ── PREVIEW MODE: toggle pill ── */}
+        {/* ── PREVIEW MODE: mode pill bottom-right ── */}
         {mode === 'preview' && queue.length === 0 && (
           <div style={{
-            position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)',
+            position: 'fixed', bottom: 16, right: 16,
             zIndex: 9999, pointerEvents: 'all',
             background: BG, backdropFilter: 'blur(16px)',
             border: `1px solid ${BORDER}`,
@@ -406,26 +499,26 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
         {/* ── HISTORY PANEL ── */}
         {mode === 'edit' && showHistory && (
           <div style={{
-            position: 'fixed', bottom: 52, left: 0, right: 0,
-            maxHeight: 280, overflowY: 'auto',
+            position: 'fixed', bottom: 48, left: 0, right: 0,
+            maxHeight: 240, overflowY: 'auto',
             zIndex: 9998, pointerEvents: 'all',
-            background: BG, backdropFilter: 'blur(20px)',
+            background: 'rgba(8,8,26,0.97)', backdropFilter: 'blur(20px)',
             borderTop: `1px solid ${BORDER}`,
           }}>
             {history.length === 0 ? (
-              <p style={{ margin: 0, padding: '20px 20px', fontSize: 12, color: 'rgba(255,255,255,0.3)', textAlign: 'center' }}>
+              <p style={{ margin: 0, padding: '20px', fontSize: 12, color: 'rgba(255,255,255,0.25)', textAlign: 'center' }}>
                 No edits yet this session
               </p>
             ) : (
               [...history].reverse().map((ev, i) => (
                 <div key={ev.id} style={{
                   display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '10px 20px',
+                  padding: '9px 20px',
                   borderBottom: i < history.length - 1 ? `1px solid rgba(255,255,255,0.04)` : 'none',
                 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: GREEN, flexShrink: 0, boxShadow: `0 0 6px ${GREEN}` }} />
-                  <span style={{ flex: 1, fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>{ev.command}</span>
-                  <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', flexShrink: 0 }}>
+                  <span style={{ width: 5, height: 5, borderRadius: '50%', background: GREEN, flexShrink: 0 }} />
+                  <span style={{ flex: 1, fontSize: 12, color: 'rgba(255,255,255,0.72)' }}>{ev.command}</span>
+                  <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', flexShrink: 0 }}>
                     {new Date(ev.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
@@ -438,74 +531,76 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
         {mode === 'edit' && (
           <div style={{
             position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 9999,
-            height: 52, pointerEvents: 'all',
-            background: BG, backdropFilter: 'blur(20px)',
+            height: 48, pointerEvents: 'all',
+            background: BG, backdropFilter: 'blur(24px)',
             borderTop: `1px solid ${BORDER}`,
-            display: 'flex', alignItems: 'center', padding: '0 16px', gap: 14,
-            boxShadow: '0 -4px 32px rgba(0,0,0,0.4)',
+            display: 'flex', alignItems: 'center', padding: '0 14px', gap: 10,
           }}>
-            {/* Left: stats */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 1, flexShrink: 0 }}>
-              <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)', fontWeight: 600, letterSpacing: '0.02em' }}>
+            {/* Timer + edit count */}
+            <div style={{ flexShrink: 0 }}>
+              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.82)', fontWeight: 600, fontVariantNumeric: 'tabular-nums', lineHeight: 1.2 }}>
                 {fmtTime(elapsed)}
-              </span>
-              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.04em' }}>
+              </div>
+              <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.05em' }}>
                 {editCount} edit{editCount !== 1 ? 's' : ''}
-              </span>
+              </div>
             </div>
 
-            <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,0.08)' }} />
+            <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.07)', flexShrink: 0 }} />
 
-            {/* Center: input */}
-            <div style={{ flex: 1, display: 'flex', gap: 8, alignItems: 'center' }}>
-              <input
-                value={globalInput}
-                onChange={(e) => setGlobalInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleGlobalSend()}
-                placeholder="Describe a change across the page…"
-                style={{
-                  flex: 1, background: 'rgba(255,255,255,0.05)',
-                  border: `1px solid ${globalInput ? `${ACCENT}55` : 'rgba(255,255,255,0.08)'}`,
-                  borderRadius: 8, padding: '7px 14px', fontSize: 13,
-                  outline: 'none', color: 'rgba(255,255,255,0.9)',
-                  transition: 'border-color 150ms ease',
-                  boxShadow: globalInput ? `0 0 0 3px ${ACCENT}18` : 'none',
-                }}
-              />
-              <button
-                onClick={handleGlobalSend}
-                disabled={!globalInput.trim() || queue.some(c => c.status === 'active')}
-                style={{
-                  background: globalInput.trim() ? ACCENT : 'rgba(108,111,255,0.15)',
-                  color: '#fff', border: 'none', borderRadius: 8,
-                  padding: '7px 16px', fontSize: 13, fontWeight: 600,
-                  cursor: globalInput.trim() ? 'pointer' : 'default',
-                  flexShrink: 0, transition: 'all 150ms ease',
-                  boxShadow: globalInput.trim() ? `0 0 16px ${ACCENT}66` : 'none',
-                }}
-              >
-                {queue.some(c => c.status === 'active') ? <span style={{ animation: 'g-pulse 1s ease infinite', display: 'inline-block' }}>…</span> : '↑'}
-              </button>
-            </div>
-
-            <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,0.08)' }} />
-
-            {/* Right: history + mode toggle */}
-            <button
-              onClick={() => setShowHistory((v) => !v)}
-              title="Edit history"
+            {/* Global input */}
+            <input
+              value={globalInput}
+              onChange={(e) => setGlobalInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleGlobalSend()}
+              placeholder="Describe a change across the page…"
               style={{
-                background: showHistory ? `${ACCENT}33` : 'transparent',
-                border: `1px solid ${showHistory ? `${ACCENT}66` : 'rgba(255,255,255,0.1)'}`,
-                borderRadius: 8, padding: '4px 10px', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', gap: 5,
-                color: showHistory ? ACCENT : 'rgba(255,255,255,0.4)',
-                fontSize: 11, fontWeight: 600, flexShrink: 0,
-                transition: 'all 150ms ease',
+                flex: 1, background: 'rgba(255,255,255,0.04)',
+                border: `1px solid ${globalInput ? `${ACCENT}44` : 'rgba(255,255,255,0.07)'}`,
+                borderRadius: 6, padding: '6px 12px', fontSize: 12,
+                outline: 'none', color: 'rgba(255,255,255,0.85)',
+                transition: 'border-color 150ms',
+              }}
+            />
+            <button
+              onClick={handleGlobalSend}
+              disabled={!globalInput.trim() || queue.some((c) => c.status === 'active')}
+              style={{
+                background: globalInput.trim() ? ACCENT : 'rgba(108,111,255,0.1)',
+                color: '#fff', border: 'none', borderRadius: 6,
+                padding: '6px 14px', fontSize: 12, fontWeight: 600,
+                cursor: globalInput.trim() ? 'pointer' : 'default',
+                flexShrink: 0, transition: 'background 120ms',
+                boxShadow: globalInput.trim() ? `0 0 14px ${ACCENT}55` : 'none',
               }}
             >
-              ≡ {history.length > 0 && <span style={{ color: GREEN }}>{history.length}</span>}
+              {queue.some((c) => c.status === 'active')
+                ? <span style={{ animation: 'g-blink 1s ease infinite', display: 'inline-block' }}>…</span>
+                : '↑'}
             </button>
+
+            <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.07)', flexShrink: 0 }} />
+
+            {/* History toggle */}
+            <button
+              onClick={() => setShowHistory((v) => !v)}
+              style={{
+                background: showHistory ? `${ACCENT}1a` : 'transparent',
+                border: `1px solid ${showHistory ? `${ACCENT}55` : 'rgba(255,255,255,0.08)'}`,
+                borderRadius: 6, padding: '4px 10px',
+                cursor: 'pointer',
+                color: showHistory ? ACCENT : 'rgba(255,255,255,0.32)',
+                fontSize: 11, fontWeight: 600, flexShrink: 0,
+                display: 'flex', alignItems: 'center', gap: 4,
+                transition: 'all 150ms',
+              }}
+            >
+              ≡{history.length > 0 && (
+                <span style={{ color: GREEN, marginLeft: 2, fontSize: 10 }}>{history.length}</span>
+              )}
+            </button>
+
+            {/* Mode toggle */}
             <ModePill mode={mode} onToggle={setMode} />
           </div>
         )}
@@ -516,18 +611,18 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
 
 function ModePill({ mode, onToggle }: { mode: Mode; onToggle: (m: Mode) => void }) {
   return (
-    <div style={{ display: 'flex', borderRadius: 999, background: 'rgba(255,255,255,0.05)', padding: 3, gap: 2, pointerEvents: 'all' }}>
+    <div style={{ display: 'flex', borderRadius: 999, background: 'rgba(255,255,255,0.04)', padding: 2, gap: 2 }}>
       {(['preview', 'edit'] as const).map((m) => (
         <button key={m} onClick={() => onToggle(m)} style={{
           background: mode === m ? ACCENT : 'transparent',
           border: 'none', borderRadius: 999,
-          padding: '4px 14px', fontSize: 12, fontWeight: 600,
+          padding: '4px 12px', fontSize: 11, fontWeight: 600,
           cursor: 'pointer',
-          color: mode === m ? '#fff' : 'rgba(255,255,255,0.4)',
-          boxShadow: mode === m ? `0 0 12px ${ACCENT}88` : 'none',
-          transition: 'all 150ms ease',
+          color: mode === m ? '#fff' : 'rgba(255,255,255,0.35)',
+          boxShadow: mode === m ? `0 0 10px ${ACCENT}66` : 'none',
+          transition: 'all 120ms',
           textTransform: 'capitalize',
-          fontFamily: 'system-ui,sans-serif',
+          fontFamily: 'system-ui, sans-serif',
           letterSpacing: '0.02em',
         }}>{m}</button>
       ))}
