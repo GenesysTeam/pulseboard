@@ -95,6 +95,7 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
   const startRef = useRef(Date.now())
   const fileMapRef = useRef(fileMap)
   fileMapRef.current = fileMap
+  const reloadScheduledRef = useRef(false)
 
   useEffect(() => {
     const t = setInterval(() => setElapsed(Math.floor((Date.now() - startRef.current) / 1000)), 1000)
@@ -148,6 +149,10 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
           if (doneCmd) {
             addNotif(doneCmd.command, true)
             setHistory(h => [...h, { id: doneCmd!.id, command: doneCmd!.command, status: 'done', created_at: new Date().toISOString() }])
+          }
+          if (!reloadScheduledRef.current) {
+            reloadScheduledRef.current = true
+            setTimeout(() => window.location.reload(), 1200)
           }
         }, 300)
         setTimeout(() => labelComponents(fileMapRef.current), 600)
@@ -249,9 +254,11 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
         const body = await res.json().catch(() => ({}))
         failItem((body as { error?: string }).error || 'Command failed')
       } else {
-        // HTTP response confirms file was written — reload to show the change
-        // WS message handles the visual Done state; this guarantees the reload fires
-        setTimeout(() => window.location.reload(), 1500)
+        // HTTP response confirms file was written — schedule reload (WS handler may also schedule one; dedup via ref)
+        if (!reloadScheduledRef.current) {
+          reloadScheduledRef.current = true
+          setTimeout(() => window.location.reload(), 1500)
+        }
       }
     } catch {
       clearTimeout(timeoutId)
