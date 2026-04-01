@@ -667,27 +667,31 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
   )
 }
 
-const MODEL_OPTIONS: { value: ModelPref; label: string; color: string }[] = [
-  { value: 'auto',   label: 'Auto',   color: CYAN },
-  { value: 'gemini', label: 'Flash',  color: '#34A853' },
-  { value: 'sonnet', label: 'Sonnet', color: ACCENT },
+const MODEL_OPTIONS: { value: ModelPref; label: string }[] = [
+  { value: 'auto',   label: 'Auto — fastest available' },
+  { value: 'gemini', label: 'Flash — Google Gemini 2.5' },
+  { value: 'sonnet', label: 'Sonnet — Anthropic Claude' },
 ]
 
 function ModelPicker({ model, onChange }: { model: ModelPref; onChange: (m: ModelPref) => void }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 3, borderRadius: 999, background: 'rgba(255,255,255,0.04)', padding: 2 }}>
+    <select
+      value={model}
+      onChange={e => onChange(e.target.value as ModelPref)}
+      style={{
+        background: 'rgba(255,255,255,0.04)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        borderRadius: 6, padding: '4px 8px',
+        fontSize: 10, fontWeight: 600, cursor: 'pointer',
+        color: 'rgba(255,255,255,0.5)',
+        fontFamily: 'system-ui, sans-serif',
+        outline: 'none', flexShrink: 0,
+      }}
+    >
       {MODEL_OPTIONS.map(o => (
-        <button key={o.value} onClick={() => onChange(o.value)} style={{
-          background: model === o.value ? `${o.color}22` : 'transparent',
-          border: `1px solid ${model === o.value ? `${o.color}66` : 'transparent'}`,
-          borderRadius: 999, padding: '3px 9px',
-          fontSize: 10, fontWeight: 600, cursor: 'pointer',
-          color: model === o.value ? o.color : 'rgba(255,255,255,0.3)',
-          transition: 'all 120ms', fontFamily: 'system-ui, sans-serif',
-          letterSpacing: '0.02em',
-        }}>{o.label}</button>
+        <option key={o.value} value={o.value}>{o.label}</option>
       ))}
-    </div>
+    </select>
   )
 }
 
