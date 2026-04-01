@@ -241,7 +241,7 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
       addNotif(msg, false)
       setTimeout(() => setQueue(q => q.filter(c => c.id !== id)), 3000)
     }
-    const timeoutId = setTimeout(() => failItem('Timed out'), 30000)
+    const timeoutId = setTimeout(() => failItem('Timed out'), 120000)
 
     try {
       const res = await fetch(`${API}/sessions/${sessionId}/command`, {
