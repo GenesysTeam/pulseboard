@@ -28,6 +28,18 @@ export function SideNav({ items, activeKey, onSelect }: SideNavProps) {
           )
         })}
       </ul>
+      <div
+        style={{
+          padding: 'var(--space-2) var(--space-4)',
+          fontSize: 'var(--text-base)',
+          color: 'var(--color-neutral-700)',
+          cursor: 'pointer',
+          marginTop: 'auto' /* Push to bottom */
+        }}
+        onClick={() => {}}
+      >
+        Logout
+      </div>
     </nav>
   )
 }
