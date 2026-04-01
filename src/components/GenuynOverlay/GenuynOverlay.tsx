@@ -64,7 +64,7 @@ function labelComponents(fileMap: Record<string, string>) {
 
 const STEPS = [
   { label: 'Reading', color: CYAN },
-  { label: 'Writing', color: ACCENT },
+  { label: 'Generating', color: ACCENT },
   { label: 'Applying', color: GREEN },
 ]
 
@@ -138,6 +138,14 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
       wsRef.current = ws
       ws.onmessage = (e) => {
         const msg = JSON.parse(e.data)
+        if (msg.type === 'progress') {
+          setQueue(q => q.map(c =>
+            (c.status === 'active' || c.status === 'applying') && c.step < msg.step
+              ? { ...c, step: msg.step }
+              : c
+          ))
+          return
+        }
         if (msg.type !== 'refresh') return
         let doneCmd: QueueItem | undefined
         setQueue(q => {
@@ -230,12 +238,7 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
     setSelected(null)
     setChipInput('')
 
-    const stepTimer = setTimeout(
-      () => setQueue(q => q.map(c => c.id === id && c.step === 0 ? { ...c, step: 1 } : c)),
-      1400
-    )
     const failItem = (msg: string) => {
-      clearTimeout(stepTimer)
       setQueue(q => q.map(c => c.id === id ? { ...c, status: 'failed' } : c))
       setSkeleton(null)
       addNotif(msg, false)
