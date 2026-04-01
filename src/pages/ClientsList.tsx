@@ -38,10 +38,39 @@ export default function ClientsList({ onClientSelect }: ClientsListProps) {
   const [showEmpty, setShowEmpty] = useState(false)
   const [newName, setNewName] = useState('')
   const [newEmail, setNewEmail] = useState('')
-  const filteredClients = mockClients
+  const [nameFilter, setNameFilter] = useState('')
+
+  const filteredClients = mockClients.filter(c =>
+    c.name.toLowerCase().includes(nameFilter.toLowerCase())
+  )
 
   const columns = [
-    { key: 'name', label: 'Name' },
+    {
+      key: 'name',
+      label: (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+          <span>Name</span>
+          <input
+            type="text"
+            placeholder="Filter..."
+            value={nameFilter}
+            onChange={e => setNameFilter(e.target.value)}
+            onClick={e => e.stopPropagation()}
+            style={{
+              fontFamily: 'var(--font-family)',
+              fontSize: 'var(--text-sm)',
+              padding: 'var(--space-1) var(--space-2)',
+              border: '1px solid var(--color-neutral-300)',
+              borderRadius: 'var(--radius-sm)',
+              outline: 'none',
+              width: '100%',
+              color: 'var(--color-neutral-700)',
+              background: 'var(--color-white)',
+            }}
+          />
+        </div>
+      ) as unknown as string,
+    },
     { key: 'email', label: 'Email' },
     {
       key: 'status',
