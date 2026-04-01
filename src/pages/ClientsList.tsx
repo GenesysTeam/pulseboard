@@ -49,26 +49,24 @@ export default function ClientsList({ onClientSelect }: ClientsListProps) {
     {
       key: 'email',
       label: (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
           <span>Email</span>
-          <input
-            type="text"
-            placeholder="Filter..."
-            value={emailFilter}
-            onChange={e => setEmailFilter(e.target.value)}
-            onClick={e => e.stopPropagation()}
+          <button
+            onClick={() => setEmailFilter('')}
             style={{
-              fontFamily: 'var(--font-family)',
-              fontSize: 'var(--text-sm)',
-              padding: 'var(--space-1) var(--space-2)',
-              border: '1px solid var(--color-neutral-300)',
-              borderRadius: 'var(--radius-sm)',
-              outline: 'none',
-              width: '100%',
-              color: 'var(--color-neutral-700)',
-              background: 'var(--color-white)',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
-          />
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M6.5 2.5C6.5 2.22386 6.72386 2 7 2H9C9.27614 2 9.5 2.22386 9.5 2.5V3H13C13.2761 3 13.5 3.22386 13.5 3.5C13.5 3.77614 13.2761 4 13 4H12.4L11.9 12.5C11.8 14 10.6 15 9.2 15H6.8C5.4 15 4.2 14 4.1 12.5L3.6 4H3C2.72386 4 2.5 3.77614 2.5 3.5C2.5 3.22386 2.72386 3 3 3H6.5V2.5ZM6 6C5.72386 6 5.5 6.22386 5.5 6.5V12C5.5 12.2761 5.72386 12.5 6 12.5C6.27614 12.5 6.5 12.2761 6.5 12V6.5C6.5 6.22386 6.27614 6 6 6ZM10 6C9.72386 6 9.5 6.22386 9.5 6.5V12C9.5 12.2761 9.72386 12.5 10 12.5C10.2761 12.5 10.5 12.2761 10.5 12V6.5C10.5 6.22386 10.2761 6 10 6Z" fill="var(--color-neutral-500)"/>
+            </svg>
+          </button>
         </div>
       ) as unknown as string,
     },
