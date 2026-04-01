@@ -99,6 +99,7 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
   const startRef = useRef(Date.now())
   const fileMapRef = useRef(fileMap)
   fileMapRef.current = fileMap
+  const didReload = useRef(false)
 
   useEffect(() => {
     const t = setInterval(() => setElapsed(Math.floor((Date.now() - startRef.current) / 1000)), 1000)
@@ -147,6 +148,7 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
           return q.map(c => c.id === first.id ? { ...c, step: 2, status: 'applying' } : c)
         })
         setSkeleton(null)
+        if (!didReload.current) { didReload.current = true; window.location.reload() }
         setTimeout(() => {
           setQueue(q => q.map(c => c.status === 'applying' ? { ...c, step: 3, status: 'done' } : c))
           setEditCount(n => n + 1)
@@ -253,6 +255,8 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         failItem((body as { error?: string }).error || 'Command failed')
+      } else {
+        if (!didReload.current) { didReload.current = true; window.location.reload() }
       }
     } catch {
       clearTimeout(timeoutId)
