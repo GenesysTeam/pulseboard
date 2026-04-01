@@ -6,10 +6,11 @@ import ClientDetail from './pages/ClientDetail'
 import Settings from './pages/Settings'
 import GenuynOverlay from './components/GenuynOverlay/GenuynOverlay'
 
-type Page = 'clients' | 'client-detail' | 'settings'
+type Page = 'clients' | 'client-detail' | 'settings' | 'users'
 
 const navItems = [
   { label: 'Clients', key: 'clients' },
+  { label: 'Users', key: 'users' },
   { label: 'Settings', key: 'settings' },
 ]
 
@@ -20,8 +21,8 @@ export default function App() {
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null)
 
   const handleNavSelect = (key: string) => {
-    if (key === 'clients' || key === 'settings') {
-      setActivePage(key)
+    if (key === 'clients' || key === 'settings' || key === 'users') {
+      setActivePage(key as Page)
     }
   }
 
@@ -31,6 +32,13 @@ export default function App() {
   }
 
   const activeKey = activePage === 'client-detail' ? 'clients' : activePage
+
+  const renderUsers = () => (
+    <div style={{ padding: 'var(--space-4)' }}>
+      <h1 style={{ fontSize: 'var(--text-xl)', fontWeight: 'var(--weight-semibold)', marginBottom: 'var(--space-4)' }}>Users</h1>
+      <p style={{ color: 'var(--color-neutral-500)', marginBottom: 'var(--space-4)' }}>Manage users, edit permissions, and search users</p>
+    </div>
+  )
 
   return (
     <div className={styles.app}>
@@ -47,6 +55,7 @@ export default function App() {
           <ClientDetail clientId={selectedClientId} onBack={() => setActivePage('clients')} />
         )}
         {activePage === 'settings' && <Settings />}
+        {activePage === 'users' && renderUsers()}
       </main>
       {genuynSession && <GenuynOverlay sessionId={genuynSession} />}
     </div>
