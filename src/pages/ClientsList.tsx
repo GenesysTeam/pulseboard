@@ -22,6 +22,11 @@ const mockClients: Client[] = [
   { id: 4, name: 'David Brown', email: 'david@freelance.com', status: 'overdue', lastContact: '2023-11-15' },
   { id: 5, name: 'Emma Davis', email: 'emma@startup.xyz', status: 'active', lastContact: '2024-01-12' },
   { id: 6, name: 'Frank Miller', email: 'frank@agency.net', status: 'pending', lastContact: '2024-01-05' },
+  { id: 7, name: 'Grace Wilson', email: 'grace@consulting.co', status: 'active', lastContact: '2024-01-15' },
+  { id: 8, name: 'Henry Moore', email: 'henry@innovate.net', status: 'overdue', lastContact: '2023-12-01' },
+  { id: 9, name: 'Ivy Taylor', email: 'ivy@creative.org', status: 'pending', lastContact: '2024-01-07' },
+  { id: 10, name: 'Jack White', email: 'jack@solutions.io', status: 'inactive', lastContact: '2023-11-25' },
+  { id: 11, name: 'Karen Hall', email: 'karen@globalcorp.com', status: 'active', lastContact: '2024-01-11' },
 ]
 
 interface ClientsListProps {
