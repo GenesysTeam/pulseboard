@@ -40,7 +40,10 @@ export default function ClientDetail({ clientId, onBack }: ClientDetailProps) {
 
   return (
     <div className={styles.page}>
-      <Button variant="ghost" size="sm" onClick={onBack}>← Back to Clients</Button>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
+        <Button variant="ghost" size="sm" onClick={onBack}>← Back to Clients</Button>
+        <Button variant="secondary" size="sm" onClick={() => {}}>Logout</Button>
+      </div>
 
       <div className={styles.clientHeader}>
         <Avatar name={client.name} size="md" />
