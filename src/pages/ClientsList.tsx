@@ -33,6 +33,13 @@ export default function ClientsList({ onClientSelect }: ClientsListProps) {
   const [showEmpty, setShowEmpty] = useState(false)
   const [newName, setNewName] = useState('')
   const [newEmail, setNewEmail] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
+
+  const filteredClients = mockClients.filter(
+    (client) =>
+      client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      client.email.toLowerCase().includes(searchQuery.toLowerCase())
+  )
 
   const columns = [
     { key: 'name', label: 'Name' },
@@ -51,6 +58,12 @@ export default function ClientsList({ onClientSelect }: ClientsListProps) {
     <div className={styles.page}>
       <div className={styles.header}>
         <h1 className={styles.heading}>Clients</h1>
+        <Input
+          placeholder="Search by name or email..."
+          value={searchQuery}
+          onChange={setSearchQuery}
+          style={{ maxWidth: '300px' }}
+        />
         <div className={styles.headerActions}>
           <Button variant="ghost" size="sm" onClick={() => setShowEmpty(!showEmpty)}>
             Toggle Empty
@@ -73,7 +86,7 @@ export default function ClientsList({ onClientSelect }: ClientsListProps) {
       ) : (
         <Table
           columns={columns}
-          data={mockClients as unknown as Record<string, unknown>[]}
+          data={filteredClients as unknown as Record<string, unknown>[]}
           onRowClick={(row) => onClientSelect(row.id as number)}
         />
       )}
