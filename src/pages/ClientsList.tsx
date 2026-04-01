@@ -64,7 +64,9 @@ export default function ClientsList({ onClientSelect }: ClientsListProps) {
             }}
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M6.5 2.5C6.5 2.22386 6.72386 2 7 2H9C9.27614 2 9.5 2.22386 9.5 2.5V3H13C13.2761 3 13.5 3.22386 13.5 3.5C13.5 3.77614 13.2761 4 13 4H12.4L11.9 12.5C11.8 14 10.6 15 9.2 15H6.8C5.4 15 4.2 14 4.1 12.5L3.6 4H3C2.72386 4 2.5 3.77614 2.5 3.5C2.5 3.22386 2.72386 3 3 3H6.5V2.5ZM6 6C5.72386 6 5.5 6.22386 5.5 6.5V12C5.5 12.2761 5.72386 12.5 6 12.5C6.27614 12.5 6.5 12.2761 6.5 12V6.5C6.5 6.22386 6.27614 6 6 6ZM10 6C9.72386 6 9.5 6.22386 9.5 6.5V12C9.5 12.2761 9.72386 12.5 10 12.5C10.2761 12.5 10.5 12.2761 10.5 12V6.5C10.5 6.22386 10.2761 6 10 6Z" fill="var(--color-neutral-500)"/>
+              <line x1="2" y1="4" x2="14" y2="4" stroke="var(--color-neutral-500)" strokeWidth="1.5" strokeLinecap="round"/>
+              <line x1="4" y1="8" x2="12" y2="8" stroke="var(--color-neutral-500)" strokeWidth="1.5" strokeLinecap="round"/>
+              <line x1="6" y1="12" x2="10" y2="12" stroke="var(--color-neutral-500)" strokeWidth="1.5" strokeLinecap="round"/>
             </svg>
           </button>
         </div>
