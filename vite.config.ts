@@ -1,12 +1,26 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import type { Plugin } from 'vite'
+
+// Exposes POST /__hmr?file=<absolute-path> so the genuyn-live server
+// can trigger HMR immediately after writing a file, bypassing Chokidar polling.
+function hmrTriggerPlugin(): Plugin {
+  return {
+    name: 'hmr-trigger',
+    configureServer(server) {
+      server.middlewares.use('/__hmr', (req, res) => {
+        const url = new URL(req.url!, 'http://localhost')
+        const file = url.searchParams.get('file')
+        if (file) server.watcher.emit('change', file)
+        res.writeHead(200).end('ok')
+      })
+    },
+  }
+}
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), hmrTriggerPlugin()],
   server: {
-    // Vite 6 blocks requests with foreign Host headers by default.
-    // Behind Railway's proxy the Host is the public domain, not localhost —
-    // allow all hosts so the HMR WebSocket can connect through the proxy.
     allowedHosts: 'all',
     hmr: process.env.RAILWAY_PUBLIC_DOMAIN
       ? { clientPort: 443 }
