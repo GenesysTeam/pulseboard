@@ -26,4 +26,7 @@ export default defineConfig({
       ? { clientPort: 443 }
       : true,
   },
+  // Skip WS token validation — token is regenerated on every Railway deploy,
+  // causing browsers with cached /@vite/client to fail authentication.
+  legacy: { skipWebSocketTokenCheck: true },
 })
