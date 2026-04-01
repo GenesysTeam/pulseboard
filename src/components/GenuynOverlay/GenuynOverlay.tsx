@@ -10,6 +10,7 @@ const BORDER = 'rgba(255,255,255,0.08)'
 const GLOW = '0 0 24px rgba(108,111,255,0.2), 0 4px 20px rgba(0,0,0,0.6)'
 
 type Mode = 'preview' | 'edit'
+type ModelPref = 'auto' | 'gemini' | 'sonnet'
 
 interface QueueItem {
   id: string
@@ -75,6 +76,9 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
   const [mode, setMode] = useState<Mode>(
     () => (sessionStorage.getItem('genuyn-mode') as Mode) || 'preview'
   )
+  const [modelPref, setModelPref] = useState<ModelPref>(
+    () => (localStorage.getItem('genuyn-model') as ModelPref) || 'auto'
+  )
   const [fileMap, setFileMap] = useState<Record<string, string>>({})
   const [queue, setQueue] = useState<QueueItem[]>([])
   const [notifs, setNotifs] = useState<Notif[]>([])
@@ -121,6 +125,7 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
   }, [mode, fileMap])
 
   useEffect(() => { sessionStorage.setItem('genuyn-mode', mode) }, [mode])
+  useEffect(() => { localStorage.setItem('genuyn-model', modelPref) }, [modelPref])
 
   const addNotif = (text: string, ok: boolean) => {
     const id = `n${Date.now()}`
@@ -247,7 +252,7 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
       const res = await fetch(`${API}/sessions/${sessionId}/command`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ command, filePath: file }),
+        body: JSON.stringify({ command, filePath: file, model: modelPref }),
       })
       clearTimeout(timeoutId)
       if (!res.ok) {
@@ -652,11 +657,37 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
               )}
             </button>
 
+            <ModelPicker model={modelPref} onChange={m => { setModelPref(m) }} />
+
             <ModePill mode={mode} onToggle={setMode} />
           </div>
         )}
       </div>
     </>
+  )
+}
+
+const MODEL_OPTIONS: { value: ModelPref; label: string; color: string }[] = [
+  { value: 'auto',   label: 'Auto',   color: CYAN },
+  { value: 'gemini', label: 'Flash',  color: '#34A853' },
+  { value: 'sonnet', label: 'Sonnet', color: ACCENT },
+]
+
+function ModelPicker({ model, onChange }: { model: ModelPref; onChange: (m: ModelPref) => void }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 3, borderRadius: 999, background: 'rgba(255,255,255,0.04)', padding: 2 }}>
+      {MODEL_OPTIONS.map(o => (
+        <button key={o.value} onClick={() => onChange(o.value)} style={{
+          background: model === o.value ? `${o.color}22` : 'transparent',
+          border: `1px solid ${model === o.value ? `${o.color}66` : 'transparent'}`,
+          borderRadius: 999, padding: '3px 9px',
+          fontSize: 10, fontWeight: 600, cursor: 'pointer',
+          color: model === o.value ? o.color : 'rgba(255,255,255,0.3)',
+          transition: 'all 120ms', fontFamily: 'system-ui, sans-serif',
+          letterSpacing: '0.02em',
+        }}>{o.label}</button>
+      ))}
+    </div>
   )
 }
 
