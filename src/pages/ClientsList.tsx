@@ -55,6 +55,9 @@ export default function ClientsList({ onClientSelect }: ClientsListProps) {
           <Button variant="ghost" size="sm" onClick={() => setShowEmpty(!showEmpty)}>
             Toggle Empty
           </Button>
+          <Button variant="secondary" size="md" onClick={() => {}}>
+            Export CSV
+          </Button>
           <Button variant="primary" size="md" onClick={() => setIsModalOpen(true)}>
             Add Client
           </Button>
