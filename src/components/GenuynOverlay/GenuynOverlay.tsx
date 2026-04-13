@@ -94,6 +94,8 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
   const [editCount, setEditCount] = useState(0)
   const [history, setHistory] = useState<HistoryEvent[]>([])
   const [showHistory, setShowHistory] = useState(false)
+  const [canUndo, setCanUndo] = useState(false)
+  const [canRedo, setCanRedo] = useState(false)
   const wsRef = useRef<WebSocket | null>(null)
   const dismissRef = useRef<ReturnType<typeof setTimeout>>()
   const startRef = useRef(Date.now())
@@ -144,6 +146,11 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
               ? { ...c, step: msg.step }
               : c
           ))
+          return
+        }
+        if (msg.type === 'undo-state') {
+          setCanUndo(msg.canUndo)
+          setCanRedo(msg.canRedo)
           return
         }
         if (msg.type !== 'refresh') return
@@ -225,6 +232,18 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
     return () => document.removeEventListener('keydown', onKey)
   }, [])
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+        e.preventDefault()
+        if (e.shiftKey) handleRedo()
+        else handleUndo()
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [canUndo, canRedo])
+
   const cancelItem = (id: string) => {
     setQueue(q => q.filter(c => c.id !== id))
     setSkeleton(null)
@@ -272,6 +291,16 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
     if (!globalInput.trim()) return
     submitCommand(globalInput.trim())
     setGlobalInput('')
+  }
+
+  const handleUndo = async () => {
+    const res = await fetch(`${API}/sessions/${sessionId}/undo`, { method: 'POST' })
+    if (!res.ok) addNotif('Nothing to undo', false)
+  }
+
+  const handleRedo = async () => {
+    const res = await fetch(`${API}/sessions/${sessionId}/redo`, { method: 'POST' })
+    if (!res.ok) addNotif('Nothing to redo', false)
   }
 
   // Chip anchors just above click point, centered, clamped to viewport
@@ -521,15 +550,41 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
           </div>
         )}
 
-        {/* ── PREVIEW MODE: pill bottom-right ── */}
+        {/* ── PREVIEW MODE: pill + undo/redo bottom-right ── */}
         {mode === 'preview' && queue.length === 0 && (
           <div style={{
             position: 'fixed', bottom: 16, right: 16, zIndex: 9999, pointerEvents: 'all',
-            background: BG, backdropFilter: 'blur(16px)',
-            border: `1px solid ${BORDER}`, borderRadius: 999, padding: 3,
-            boxShadow: GLOW,
+            display: 'flex', alignItems: 'center', gap: 6,
           }}>
-            <ModePill mode={mode} onToggle={setMode} />
+            {(canUndo || canRedo) && (
+              <div style={{
+                background: BG, backdropFilter: 'blur(16px)',
+                border: `1px solid ${BORDER}`, borderRadius: 999,
+                padding: '3px 6px', boxShadow: GLOW,
+                display: 'flex', gap: 2,
+              }}>
+                {[
+                  { label: '↩', enabled: canUndo, action: handleUndo },
+                  { label: '↪', enabled: canRedo, action: handleRedo },
+                ].map(({ label, enabled, action }) => (
+                  <button key={label} onClick={action} disabled={!enabled} style={{
+                    background: 'transparent', border: 'none',
+                    width: 26, height: 26, borderRadius: 999,
+                    cursor: enabled ? 'pointer' : 'default',
+                    color: enabled ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.15)',
+                    fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontFamily: 'system-ui, sans-serif', transition: 'color 120ms',
+                  }}>{label}</button>
+                ))}
+              </div>
+            )}
+            <div style={{
+              background: BG, backdropFilter: 'blur(16px)',
+              border: `1px solid ${BORDER}`, borderRadius: 999, padding: 3,
+              boxShadow: GLOW,
+            }}>
+              <ModePill mode={mode} onToggle={setMode} />
+            </div>
           </div>
         )}
 
@@ -595,6 +650,33 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
                 <div style={{ fontSize: 13, color: GREEN, fontWeight: 700, lineHeight: 1.2 }}>{editCount}</div>
                 <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Moves</div>
               </div>
+            </div>
+
+            <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.07)', flexShrink: 0 }} />
+
+            {/* Undo / Redo */}
+            <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+              {[
+                { label: '↩', title: 'Undo (⌘Z)', enabled: canUndo, action: handleUndo },
+                { label: '↪', title: 'Redo (⌘⇧Z)', enabled: canRedo, action: handleRedo },
+              ].map(({ label, title, enabled, action }) => (
+                <button
+                  key={label}
+                  onClick={action}
+                  disabled={!enabled}
+                  title={title}
+                  style={{
+                    background: 'transparent',
+                    border: `1px solid ${enabled ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.04)'}`,
+                    borderRadius: 6, width: 28, height: 28,
+                    cursor: enabled ? 'pointer' : 'default',
+                    color: enabled ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.15)',
+                    fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0, transition: 'all 120ms',
+                    fontFamily: 'system-ui, sans-serif',
+                  }}
+                >{label}</button>
+              ))}
             </div>
 
             <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.07)', flexShrink: 0 }} />
