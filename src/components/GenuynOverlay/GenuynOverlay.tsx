@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-const API = `https://${window.location.host}`
+const API = `${window.location.protocol}//${window.location.host}`
 const ACCENT = '#6C6FFF'
 const CYAN = '#00D4FF'
 const GREEN = '#00FF94'
@@ -136,10 +136,15 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
 
   useEffect(() => {
     const connect = () => {
-      const ws = new WebSocket(`wss://${window.location.host}/ws?session=${sessionId}`)
+      const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
+      const ws = new WebSocket(`${proto}://${window.location.host}/ws?session=${sessionId}`)
       wsRef.current = ws
       ws.onmessage = (e) => {
         const msg = JSON.parse(e.data)
+        if (msg.type === 'voice-command') {
+          setQueue(q => [...q, { id: `v${Date.now()}`, command: msg.command, step: 0, status: 'active' }])
+          return
+        }
         if (msg.type === 'progress') {
           setQueue(q => q.map(c =>
             (c.status === 'active' || c.status === 'applying') && c.step < msg.step
