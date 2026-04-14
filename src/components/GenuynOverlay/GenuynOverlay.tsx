@@ -254,7 +254,7 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
     setSkeleton(null)
   }
 
-  const submitCommand = async (command: string, file?: string, rect?: DOMRect) => {
+  const submitCommand = async (command: string, file?: string, rect?: DOMRect, componentName?: string, elementHtml?: string) => {
     const id = `c${Date.now()}`
     const snap = rect ? { top: rect.top, left: rect.left, width: rect.width, height: rect.height } : undefined
     setQueue(q => [...q, { id, command, file, step: 0, status: 'active', rect: snap }])
@@ -274,7 +274,7 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
       const res = await fetch(`${API}/sessions/${sessionId}/command`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ command, filePath: file, model: modelPref }),
+        body: JSON.stringify({ command, filePath: file, model: modelPref, componentName, elementHtml }),
       })
       clearTimeout(timeoutId)
       if (!res.ok) {
@@ -289,7 +289,8 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
 
   const handleChipSend = () => {
     if (!chipInput.trim() || !selected) return
-    submitCommand(chipInput.trim(), selected.file, selected.el.getBoundingClientRect())
+    const elementHtml = selected.el.outerHTML.slice(0, 800)
+    submitCommand(chipInput.trim(), selected.file, selected.el.getBoundingClientRect(), selected.name, elementHtml)
   }
 
   const handleGlobalSend = () => {
