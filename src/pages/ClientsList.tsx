@@ -16,11 +16,11 @@ interface Client {
 }
 
 const mockClients: Client[] = [
-  { id: 1, name: 'Alice Johnson', email: 'alice@acmecorp.com', status: 'active', lastContact: '2024-01-10' },
+  { id: 1, name: 'Alice Johnson', email: 'alice@acmecorp.com', status: 'inactive', lastContact: '2024-01-10' },
   { id: 2, name: 'Bob Smith', email: 'bob@techstart.io', status: 'pending', lastContact: '2024-01-08' },
-  { id: 3, name: 'Carol White', email: 'carol@designstudio.co', status: 'inactive', lastContact: '2023-12-20' },
+  { id: 3, name: 'Carol White', email: 'carol@gmail.com', status: 'pending', lastContact: '2023-12-20' },
   { id: 4, name: 'David Brown', email: 'david@freelance.com', status: 'overdue', lastContact: '2023-11-15' },
-  { id: 5, name: 'Emma Davis', email: 'emma@startup.xyz', status: 'active', lastContact: '2024-01-12' },
+  { id: 5, name: 'Emma Davis', email: 'emma@startup.xyz', status: 'overdue', lastContact: 'kasndkansd' },
   { id: 6, name: 'Frank Miller', email: 'frank@agency.net', status: 'pending', lastContact: '2024-01-05' },
 ]
 
@@ -52,7 +52,7 @@ export default function ClientsList({ onClientSelect }: ClientsListProps) {
       <div className={styles.header}>
         <h1 className={styles.heading}>Clients</h1>
         <div className={styles.headerActions}>
-          <Button variant="ghost" size="sm" onClick={() => setShowEmpty(!showEmpty)}>
+          <Button variant="ghost" size="md" onClick={() => setShowEmpty(!showEmpty)} style={{ color: 'var(--color-success)', backgroundColor: 'var(--color-neutral-700)' }}>
             Toggle Empty
           </Button>
           <Button variant="primary" size="md" onClick={() => setIsModalOpen(true)}>

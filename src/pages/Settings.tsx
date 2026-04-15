@@ -19,7 +19,7 @@ export default function Settings() {
           <Input label="Email" type="email" value={email} onChange={setEmail} />
           <Input label="Company Name" value={company} onChange={setCompany} />
           <div className={styles.saveRow}>
-            <Button variant="primary" size="md" type="submit">
+            <Button variant="primary" size="md" type="submit" style={{ backgroundColor: 'var(--color-neutral-700)', color: 'var(--color-secondary)' }}>
               Save Changes
             </Button>
           </div>
@@ -36,7 +36,7 @@ export default function Settings() {
             </p>
           </div>
           <span className={styles.dangerAction}>
-            <Button variant="ghost" size="md" onClick={() => {}}>
+            <Button variant="secondary" size="md" onClick={() => {}}>
               Delete Account
             </Button>
           </span>

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import ContextPanel from './contextPanel/ContextPanel'
 
 const API = `${window.location.protocol}//${window.location.host}`
 const ACCENT = '#6C6FFF'
@@ -23,7 +24,7 @@ interface QueueItem {
 
 interface Notif { id: string; text: string; ok: boolean }
 
-interface SelEl { el: Element; file: string; name: string }
+interface SelEl { el: Element; file: string; editFile: string; name: string }
 
 interface HistoryEvent {
   id: string
@@ -41,7 +42,8 @@ function buildFileMap(files: string[]): Record<string, string> {
   return map
 }
 
-function labelComponents(fileMap: Record<string, string>) {
+/** hoverMap = design-system components only; editMap = all files including pages */
+function labelComponents(hoverMap: Record<string, string>, editMap: Record<string, string>) {
   document.querySelectorAll('*').forEach((el) => {
     if ((el as HTMLElement).closest?.('[data-genuyn-overlay]')) return
     const fiberKey = Object.keys(el).find(
@@ -50,14 +52,41 @@ function labelComponents(fileMap: Record<string, string>) {
     if (!fiberKey) return
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let fiber = (el as any)[fiberKey]
+    let componentName: string | null = null
+    let editFile: string | null = null
     while (fiber) {
       const name: string = fiber.type?.displayName || fiber.type?.name || ''
-      if (name && fileMap[name]) {
-        el.setAttribute('data-genuyn', fileMap[name])
-        el.setAttribute('data-genuyn-name', name)
+      if (name && hoverMap[name] && !componentName) {
+        componentName = name // found the design-system component
+      } else if (componentName && name && editMap[name] && !hoverMap[name]) {
+        // found a parent that is NOT itself a design-system component → it's the usage site
+        editFile = editMap[name]
         break
       }
       fiber = fiber.return
+    }
+    if (componentName) {
+      el.setAttribute('data-genuyn', hoverMap[componentName])
+      el.setAttribute('data-genuyn-edit', editFile ?? hoverMap[componentName])
+      el.setAttribute('data-genuyn-name', componentName)
+    } else {
+      // Label bare text elements not already inside a design-system component
+      const tagName = (el as HTMLElement).tagName?.toLowerCase()
+      if (['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tagName) &&
+          el.textContent?.trim() &&
+          !el.closest('[data-genuyn]')) {
+        let f = (el as any)[fiberKey]
+        while (f) {
+          const name: string = f.type?.displayName || f.type?.name || ''
+          if (name && editMap[name] && !hoverMap[name]) {
+            el.setAttribute('data-genuyn', editMap[name])
+            el.setAttribute('data-genuyn-edit', editMap[name])
+            el.setAttribute('data-genuyn-name', 'TextLabel')
+            break
+          }
+          f = f.return
+        }
+      }
     }
   })
 }
@@ -80,15 +109,14 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
     () => (localStorage.getItem('genuyn-model') as ModelPref) || 'auto'
   )
   const [fileMap, setFileMap] = useState<Record<string, string>>({})
+  const [editMap, setEditMap] = useState<Record<string, string>>({})
   const [queue, setQueue] = useState<QueueItem[]>([])
   const [notifs, setNotifs] = useState<Notif[]>([])
   const [hovered, setHovered] = useState<SelEl | null>(null)
   const [selected, setSelected] = useState<SelEl | null>(null)
   const [hovRect, setHovRect] = useState<DOMRect | null>(null)
   const [selRect, setSelRect] = useState<DOMRect | null>(null)
-  const [clickPos, setClickPos] = useState({ x: 0, y: 0 })
-  const [skeleton, setSkeleton] = useState<{ top: number; left: number; width: number; height: number } | null>(null)
-  const [chipInput, setChipInput] = useState('')
+  const [skeleton,setSkeleton] = useState<{ top: number; left: number; width: number; height: number } | null>(null)
   const [globalInput, setGlobalInput] = useState('')
   const [elapsed, setElapsed] = useState(0)
   const [editCount, setEditCount] = useState(0)
@@ -101,6 +129,12 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
   const startRef = useRef(Date.now())
   const fileMapRef = useRef(fileMap)
   fileMapRef.current = fileMap
+  const editMapRef = useRef(editMap)
+  editMapRef.current = editMap
+  const selectedRef = useRef(selected)
+  selectedRef.current = selected
+  const selRectRef = useRef(selRect)
+  selRectRef.current = selRect
 
   useEffect(() => {
     const t = setInterval(() => setElapsed(Math.floor((Date.now() - startRef.current) / 1000)), 1000)
@@ -112,6 +146,10 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
       .then(r => r.json())
       .then((files: string[]) => setFileMap(buildFileMap(files)))
       .catch(() => {})
+    fetch(`${API}/sessions/${sessionId}/all-files`)
+      .then(r => r.json())
+      .then((files: string[]) => setEditMap(buildFileMap(files)))
+      .catch(() => {})
   }, [sessionId])
 
   useEffect(() => {
@@ -122,8 +160,8 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
   }, [sessionId])
 
   useEffect(() => {
-    if (mode === 'edit' && Object.keys(fileMap).length > 0) labelComponents(fileMap)
-  }, [mode, fileMap])
+    if (mode === 'edit' && Object.keys(fileMap).length > 0) labelComponents(fileMap, editMap)
+  }, [mode, fileMap, editMap])
 
   useEffect(() => { sessionStorage.setItem('genuyn-mode', mode) }, [mode])
   useEffect(() => { localStorage.setItem('genuyn-model', modelPref) }, [modelPref])
@@ -175,7 +213,7 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
             setHistory(h => [...h, { id: doneCmd!.id, command: doneCmd!.command, status: 'done', created_at: new Date().toISOString() }])
           }
         }, 300)
-        setTimeout(() => labelComponents(fileMapRef.current), 600)
+        setTimeout(() => labelComponents(fileMapRef.current, editMapRef.current), 600)
       }
       ws.onclose = () => setTimeout(connect, 2000)
     }
@@ -193,7 +231,7 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
       while (el) {
         if (el.hasAttribute('data-genuyn')) {
           clearTimeout(dismissRef.current)
-          setHovered({ el, file: el.getAttribute('data-genuyn')!, name: el.getAttribute('data-genuyn-name') || '' })
+          setHovered({ el, file: el.getAttribute('data-genuyn')!, editFile: el.getAttribute('data-genuyn-edit') || el.getAttribute('data-genuyn')!, name: el.getAttribute('data-genuyn-name') || '' })
           setHovRect(el.getBoundingClientRect())
           return
         }
@@ -217,22 +255,35 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
         if (el.hasAttribute('data-genuyn')) {
           e.preventDefault()
           e.stopPropagation()
-          setSelected({ el, file: el.getAttribute('data-genuyn')!, name: el.getAttribute('data-genuyn-name') || '' })
-          setSelRect(el.getBoundingClientRect())
-          setClickPos({ x: e.clientX, y: e.clientY })
+          // For list-based components (SideNav), narrow to the specific <li> that was clicked
+          // so text extraction and color edits target the right item, not the whole container
+          let targetEl = el
+          if (el.getAttribute('data-genuyn-name') === 'SideNav') {
+            let li: Element | null = t
+            while (li && li !== el) {
+              if (li.tagName.toLowerCase() === 'li') { targetEl = li; break }
+              li = li.parentElement
+            }
+          }
+          setSelected({
+            el: targetEl,
+            file: el.getAttribute('data-genuyn')!,
+            editFile: el.getAttribute('data-genuyn-edit') || el.getAttribute('data-genuyn')!,
+            name: el.getAttribute('data-genuyn-name') || '',
+          })
+          setSelRect(targetEl.getBoundingClientRect())
           return
         }
         el = el.parentElement
       }
       setSelected(null)
-      setChipInput('')
-    }
+          }
     document.addEventListener('click', onClick, { capture: true })
     return () => document.removeEventListener('click', onClick, { capture: true })
   }, [mode])
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { setSelected(null); setChipInput('') } }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { setSelected(null) } }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [])
@@ -260,8 +311,7 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
     setQueue(q => [...q, { id, command, file, step: 0, status: 'active', rect: snap }])
     if (snap) setSkeleton(snap)
     setSelected(null)
-    setChipInput('')
-
+    
     const failItem = (msg: string) => {
       setQueue(q => q.map(c => c.id === id ? { ...c, status: 'failed' } : c))
       setSkeleton(null)
@@ -287,10 +337,36 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
     }
   }
 
-  const handleChipSend = () => {
-    if (!chipInput.trim() || !selected) return
-    const elementHtml = selected.el.outerHTML.slice(0, 800)
-    submitCommand(chipInput.trim(), selected.file, selected.el.getBoundingClientRect(), selected.name, elementHtml)
+  /** After a direct edit, re-find the element in the fresh DOM and sync selRect */
+  function resyncSelected() {
+    setTimeout(() => {
+      const cur = selectedRef.current
+      if (!cur) return
+      labelComponents(fileMapRef.current, editMapRef.current)
+      const candidates = Array.from(document.querySelectorAll<Element>(`[data-genuyn-name="${cur.name}"]`))
+      if (candidates.length === 0) return
+      const last = selRectRef.current
+      const best = last
+        ? candidates.reduce((a, b) => {
+            const ra = a.getBoundingClientRect()
+            const rb = b.getBoundingClientRect()
+            return (Math.hypot(ra.top - last.top, ra.left - last.left) <=
+                    Math.hypot(rb.top - last.top, rb.left - last.left)) ? a : b
+          })
+        : candidates[0]
+      const newRect = best.getBoundingClientRect()
+      setSelRect(newRect)
+      setSelected({
+        el: best,
+        file: best.getAttribute('data-genuyn') || cur.file,
+        editFile: best.getAttribute('data-genuyn-edit') || cur.editFile,
+        name: cur.name,
+      })
+    }, 600)
+  }
+
+  const handlePanelLLMSubmit = (command: string, file: string, rect: DOMRect, name: string, html: string) => {
+    submitCommand(command, file, rect, name, html)
   }
 
   const handleGlobalSend = () => {
@@ -308,11 +384,6 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
     const res = await fetch(`${API}/sessions/${sessionId}/redo`, { method: 'POST' })
     if (!res.ok) addNotif('Nothing to redo', false)
   }
-
-  // Chip anchors just above click point, centered, clamped to viewport
-  const chipW = 264
-  const chipTop = Math.max(8, Math.min(window.innerHeight - 90, clickPos.y - 72))
-  const chipLeft = Math.max(8, Math.min(window.innerWidth - chipW - 8, clickPos.x - chipW / 2))
 
   return (
     <>
@@ -423,18 +494,32 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
           transition: 'right 240ms cubic-bezier(0.16,1,0.3,1)',
         }}>
           {notifs.map(n => (
-            <div key={n.id} style={{
-              background: BG, backdropFilter: 'blur(24px)',
-              border: `1px solid ${n.ok ? `${GREEN}44` : `${RED}44`}`,
-              borderRadius: 8, padding: '8px 14px',
-              animation: 'g-notif 200ms cubic-bezier(0.16,1,0.3,1)',
-              boxShadow: `0 4px 20px rgba(0,0,0,0.45)`,
-              display: 'flex', alignItems: 'center', gap: 8,
-            }}>
+            <div
+              key={n.id}
+              style={{
+                background: BG, backdropFilter: 'blur(24px)',
+                border: `1px solid ${n.ok ? `${GREEN}44` : `${RED}44`}`,
+                borderRadius: 8, padding: '8px 10px 8px 14px',
+                animation: 'g-notif 200ms cubic-bezier(0.16,1,0.3,1)',
+                boxShadow: `0 4px 20px rgba(0,0,0,0.45)`,
+                display: 'flex', alignItems: 'center', gap: 8,
+                pointerEvents: 'all',
+              }}
+            >
               <span style={{ fontSize: 11, color: n.ok ? GREEN : RED, fontWeight: 700, flexShrink: 0 }}>
                 {n.ok ? '✓' : '✕'}
               </span>
-              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.62)' }}>{n.text}</span>
+              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.62)', flex: 1 }}>{n.text}</span>
+              <button
+                onClick={() => setNotifs(prev => prev.filter(x => x.id !== n.id))}
+                style={{
+                  background: 'transparent', border: 'none', cursor: 'pointer',
+                  color: 'rgba(255,255,255,0.25)', fontSize: 12, lineHeight: 1,
+                  padding: '2px 4px', flexShrink: 0, transition: 'color 120ms',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.7)' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.25)' }}
+              >✕</button>
             </div>
           ))}
         </div>
@@ -490,70 +575,19 @@ export default function GenuynOverlay({ sessionId }: { sessionId: string }) {
           </>
         )}
 
-        {/* ── CHIP — appears at click point, only when selected ── */}
+        {/* ── CONTEXT PANEL — frosted glass direct-edit panel ── */}
         {mode === 'edit' && selected && (
-          <div style={{
-            position: 'fixed',
-            top: chipTop, left: chipLeft, width: chipW,
-            zIndex: 10000, pointerEvents: 'all',
-            background: BG, backdropFilter: 'blur(32px)',
-            border: `1px solid ${ACCENT}55`,
-            borderRadius: 10,
-            boxShadow: `0 8px 32px rgba(0,0,0,0.55), 0 0 0 1px ${ACCENT}18, 0 0 28px ${ACCENT}18`,
-            overflow: 'hidden',
-            animation: 'g-chip 180ms cubic-bezier(0.16,1,0.3,1)',
-          }}>
-            {/* Component name header */}
-            <div style={{
-              padding: '6px 10px 5px',
-              borderBottom: `1px solid rgba(255,255,255,0.05)`,
-              display: 'flex', alignItems: 'center', gap: 6,
-            }}>
-              <div style={{ width: 4, height: 4, borderRadius: '50%', background: ACCENT, boxShadow: `0 0 8px ${ACCENT}`, flexShrink: 0 }} />
-              <span style={{ fontSize: 9, color: `${ACCENT}cc`, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', flex: 1 }}>
-                {selected.name}
-              </span>
-              <button
-                onClick={() => { setSelected(null); setChipInput('') }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.7)' }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.22)' }}
-                style={{
-                  background: 'transparent', border: 'none', cursor: 'pointer',
-                  color: 'rgba(255,255,255,0.22)', fontSize: 12, lineHeight: 1,
-                  padding: '0 2px', transition: 'color 120ms', flexShrink: 0,
-                }}
-              >✕</button>
-            </div>
-            {/* Input */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 6px 6px 10px' }}>
-              <input
-                value={chipInput}
-                onChange={e => setChipInput(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') handleChipSend()
-                  if (e.key === 'Escape') { setSelected(null); setChipInput('') }
-                }}
-                placeholder="Describe a change…"
-                autoFocus
-                style={{
-                  flex: 1, background: 'transparent', border: 'none', outline: 'none',
-                  fontSize: 12, color: 'rgba(255,255,255,0.85)',
-                }}
-              />
-              <button
-                onClick={handleChipSend}
-                disabled={!chipInput.trim()}
-                style={{
-                  background: chipInput.trim() ? ACCENT : 'rgba(108,111,255,0.1)',
-                  color: '#fff', border: 'none', borderRadius: 6,
-                  width: 27, height: 27, cursor: chipInput.trim() ? 'pointer' : 'default',
-                  fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  flexShrink: 0, transition: 'background 120ms',
-                  boxShadow: chipInput.trim() ? `0 0 12px ${ACCENT}66` : 'none',
-                }}
-              >↑</button>
-            </div>
-          </div>
+          <ContextPanel
+            sessionId={sessionId}
+            selected={selected}
+            selRect={selRect}
+            canUndo={canUndo}
+            onClose={() => setSelected(null)}
+            onUndo={handleUndo}
+            onLLMSubmit={handlePanelLLMSubmit}
+            onEditDone={() => { resyncSelected() }}
+            onEditError={(msg) => addNotif(msg, false)}
+          />
         )}
 
         {/* ── PREVIEW MODE: pill + undo/redo bottom-right ── */}

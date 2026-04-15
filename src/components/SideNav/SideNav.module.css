@@ -21,10 +21,11 @@
   font-family: var(--font-family);
   font-size: var(--text-base);
   font-weight: var(--weight-regular);
-  color: var(--color-neutral-700);
+  color: var(--color-white);
   padding: var(--space-2) var(--space-4);
   line-height: var(--leading-base);
   transition: background-color 0.1s ease;
+  background-color: var(--color-secondary);
 }
 
 .navItem:hover {

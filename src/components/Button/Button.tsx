@@ -8,6 +8,7 @@ interface ButtonProps {
   onClick?: () => void
   type?: 'button' | 'submit' | 'reset'
   className?: string
+  style?: React.CSSProperties
 }
 
 export function Button({
@@ -18,6 +19,7 @@ export function Button({
   onClick,
   type = 'button',
   className,
+  style,
 }: ButtonProps) {
   const classes = [
     styles.button,
@@ -33,6 +35,7 @@ export function Button({
     <button
       type={type}
       className={classes}
+      style={style}
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
     >
