@@ -47,6 +47,19 @@ export default function ClientsList({ onClientSelect }: ClientsListProps) {
     { key: 'lastContact', label: 'Last Contact' },
   ]
 
+  const handleExportCSV = () => {
+    const headers = ['Name', 'Email', 'Status', 'Last Contact']
+    const rows = mockClients.map(c => [c.name, c.email, c.status, c.lastContact])
+    const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'clients.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div className={styles.page}>
       <div className={styles.header}>
@@ -54,6 +67,9 @@ export default function ClientsList({ onClientSelect }: ClientsListProps) {
         <div className={styles.headerActions}>
           <Button variant="ghost" size="md" onClick={() => setShowEmpty(!showEmpty)} style={{ color: 'var(--color-success)', backgroundColor: 'var(--color-neutral-700)' }}>
             Toggle Empty
+          </Button>
+          <Button variant="secondary" size="md" onClick={handleExportCSV}>
+            Export CSV
           </Button>
           <Button variant="primary" size="md" onClick={() => setIsModalOpen(true)}>
             Add Client
