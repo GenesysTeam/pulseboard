@@ -18,6 +18,7 @@ const genuynSession = new URLSearchParams(window.location.search).get('genuyn_se
 export default function App() {
   const [activePage, setActivePage] = useState<Page>('clients')
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
 
   const handleNavSelect = (key: string) => {
     if (key === 'clients' || key === 'settings') {
@@ -40,6 +41,22 @@ export default function App() {
         onSelect={handleNavSelect}
       />
       <main className={styles.main}>
+        <div style={{ padding: 'var(--space-4)', borderBottom: '1px solid var(--color-neutral-300)' }}>
+          <input
+            type="text"
+            placeholder="Search clients..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{
+              width: '100%',
+              padding: 'var(--space-2) var(--space-3)',
+              fontSize: 'var(--text-base)',
+              border: '1px solid var(--color-neutral-300)',
+              borderRadius: 'var(--radius-md)',
+              fontFamily: 'var(--font-family)',
+            }}
+          />
+        </div>
         {activePage === 'clients' && (
           <ClientsList onClientSelect={handleClientSelect} />
         )}
